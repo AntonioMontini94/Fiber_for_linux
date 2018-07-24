@@ -1,0 +1,16 @@
+Funzioni:
+
+ConvertThreadToFiber(): 
+	Fonte:
+		https://docs.microsoft.com/it-it/windows/desktop/api/winbase/nf-winbase-convertthreadtofiber
+	Input:
+		Un puntatore alle variabili della fibra
+	Output:
+		Un puntatore alla fibra, cioè alla cella di memoria  nella struttura dati interna al thread dove sono salvate le informazioni della fibra stessa.
+	Cosa fa:
+		Questa operazione deve essere chiamata prima di qualsiasi altra, solo una fibra può schedulare altre fibre. Inoltre crea la struttura dati necessaria per immagazinare le informazioni delle altre fibre, riempie il primo blocco della struttura con il contesto del thread corrente, diventando così la prima fibra. Per salvare i contesti uso la libreria <ucontext.h> e le funzioni getcontext()/setcontext() [https://en.wikipedia.org/wiki/Setcontext]. Inoltre questa funzione deve creare il file relativo alla fibra stessa nel proc file system grazie alla syscall dedicata.
+
+CreateFiber():
+	Fonte:
+		https://docs.microsoft.com/it-it/windows/desktop/api/winbase/nf-winbase-createfiber
+	Input:
