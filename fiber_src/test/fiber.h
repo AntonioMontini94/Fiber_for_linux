@@ -9,9 +9,12 @@
 #include <stdlib.h>
 #include <sys/types.h>
 
+
+#define FIBER_NUM 2
+
 typedef struct {
     jmp_buf context;
-    void (*entry_point)(void*);
+    void* (*entry_point)(void*);
     void* params;
     int fiber_id;
     short run;
@@ -27,9 +30,8 @@ typedef struct {
 
 fiber_list fiber_l;
 
-
 fiber_t* ConvertThreadToFiber(int);
-fiber_t* CreateFiber(int stack_size, void (*handler), void* params);
+fiber_t* CreateFiber(int stack_size, void* (*handler)(void*), void* params);
 void SwitchToFiber(fiber_t*);
 
 

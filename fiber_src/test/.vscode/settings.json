@@ -1,6 +1,8 @@
 {
     "files.associations": {
         "stdlib.h": "c",
-        "fiber.h": "c"
+        "fiber.h": "c",
+        "stdio.h": "c",
+        "unistd.h": "c"
     }
 }
