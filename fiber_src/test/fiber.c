@@ -10,7 +10,7 @@ int get_fiber_id(fiber_t* fiber){
     return fiber->fiber_id;
 }
 
-fiber_t* ConvertThreadToFiber(int stack_size){
+fiber_t* ConvertThreadToFiber(){
     fiber_t* new_fiber;
     fiber_list* new_list;
 
@@ -20,7 +20,6 @@ fiber_t* ConvertThreadToFiber(int stack_size){
     fiber_l.list = (fiber_t*) malloc(sizeof(fiber_t)*FIBER_NUM);
     fiber_l.count = 0;
     fiber_l.size = FIBER_NUM;
-    //printf("%d\n",stack_size);
 
     setjmp(new_fiber->context);
     new_fiber->fiber_id = fiber_l.count;
@@ -29,6 +28,7 @@ fiber_t* ConvertThreadToFiber(int stack_size){
     new_fiber->entry_point = NULL;
     new_fiber->params = NULL;
     new_fiber->activition_num = 1;
+    new_fiber->finish = 0;
 
     fiber_l.list[0] = *new_fiber;
     fiber_l.count++;
@@ -40,7 +40,9 @@ fiber_t* CreateFiber(int stack_size, void* (*handler)(void*), void* params){
     fiber_t* new_fiber;
     new_fiber = (fiber_t*) malloc(sizeof(fiber_t));
 
-    //if(fiber_l.count >= fiber_l.size-1) return NULL;
+    //printf("%d > %d\n",fiber_l.count,fiber_l.size-1);
+
+    if(fiber_l.count > fiber_l.size-1) return NULL;
 
     setjmp(new_fiber->context);
     new_fiber->fiber_id = fiber_l.count;
@@ -49,6 +51,7 @@ fiber_t* CreateFiber(int stack_size, void* (*handler)(void*), void* params){
     new_fiber->activition_num = 0;
     new_fiber->entry_point = handler;
     new_fiber->params = params;
+    new_fiber->finish = 0;
 
     fiber_l.list[fiber_l.count] = *new_fiber;
     
@@ -59,9 +62,11 @@ void SwitchToFiber(fiber_t* fib_to_run){
     fiber_t* this;
     int i;
     void* (*fun)(void*);
-    for(i=0 ; i<FIBER_NUM ; i++){
-        if(fiber_l.list[i].run==1) this = &fiber_l.list[i];
-    }
+
+    for(i=0 ; i<FIBER_NUM ; i++) if(fiber_l.list[i].run==1) this = &fiber_l.list[i];
+
+    if(this==fib_to_run) return;
+    if(fib_to_run->finish == 1) return;
 
     switch(setjmp(this->context)){
         case 1:
@@ -76,11 +81,13 @@ void SwitchToFiber(fiber_t* fib_to_run){
         case 0:
             fib_to_run->run = 1;
             fib_to_run->activition_num++;
-            fun = fib_to_run->entry_point;
-            //printf("%d\n",fib_to_run->fiber_id);            
+            fun = fib_to_run->entry_point;           
             fun(fib_to_run->params);
             fib_to_run->run = 0;
+            fib_to_run->finish = 1;
             longjmp(this->context,1);
+            break;
+        case 1:
             break;
     }
     
