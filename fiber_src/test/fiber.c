@@ -11,51 +11,46 @@ int get_fiber_id(fiber_t* fiber){
 }
 
 fiber_t* ConvertThreadToFiber(){
-    fiber_t* new_fiber;
-    fiber_list* new_list;
 
+    //Alloco lo spazio per il primo elemento della lsita
+	struct nodeFiber* node_f = malloc(sizeof(struct nodeFiber));
+    fiber_t* new_fiber;
     new_fiber = (fiber_t*) malloc(sizeof(fiber_t));
-    new_list = (fiber_list*) malloc(sizeof(fiber_list));
-    fiber_l = *new_list;
-    fiber_l.list = (fiber_t*) malloc(sizeof(fiber_t)*FIBER_NUM);
-    fiber_l.count = 0;
-    fiber_l.size = FIBER_NUM;
 
     setjmp(new_fiber->context);
-    new_fiber->fiber_id = fiber_l.count;
+    new_fiber->fiber_id = sizeList(fiber_l)+1;
     new_fiber->run = 1;
     new_fiber->thread_id = getpid();
-    new_fiber->entry_point = NULL;
-    new_fiber->params = NULL;
+    new_fiber->function_work = NULL;
+    new_fiber->params_function_work = NULL;
     new_fiber->activition_num = 1;
     new_fiber->finish = 0;
 
-    fiber_l.list[0] = *new_fiber;
-    fiber_l.count++;
-    //printf("%d------------\n",fiber_l.count);
-    return &fiber_l.list[0];
+	//Inserisco ila prima fibra nella lista
+	node_f -> fiber = *new_fiber;
+	node_f -> next = NULL;
+
+    fiber_l = node_f;
+
+    return &(node_f->fiber);
 }
 
 fiber_t* CreateFiber(int stack_size, void* (*handler)(void*), void* params){
     fiber_t* new_fiber;
     new_fiber = (fiber_t*) malloc(sizeof(fiber_t));
 
-    //printf("%d > %d\n",fiber_l.count,fiber_l.size-1);
-
-    if(fiber_l.count > fiber_l.size-1) return NULL;
-
     setjmp(new_fiber->context);
-    new_fiber->fiber_id = fiber_l.count;
+    new_fiber->fiber_id = sizeList(fiber_l)+1;
     new_fiber->run = 0;
     new_fiber->thread_id = getpid();
     new_fiber->activition_num = 0;
-    new_fiber->entry_point = handler;
-    new_fiber->params = params;
+    new_fiber->function_work = handler;
+    new_fiber->params_function_work = params;
     new_fiber->finish = 0;
 
-    fiber_l.list[fiber_l.count] = *new_fiber;
-    
-    return &fiber_l.list[fiber_l.count++];
+    struct nodeFiber* ret = addNode(fiber_l,*new_fiber);
+
+    return &(ret->fiber);
 }
 
 void SwitchToFiber(fiber_t* fib_to_run){
@@ -63,7 +58,7 @@ void SwitchToFiber(fiber_t* fib_to_run){
     int i;
     void* (*fun)(void*);
 
-    for(i=0 ; i<FIBER_NUM ; i++) if(fiber_l.list[i].run==1) this = &fiber_l.list[i];
+    this = findActiveFiber(fiber_l);
 
     if(this==fib_to_run) return;
     if(fib_to_run->finish == 1) return;
@@ -81,8 +76,8 @@ void SwitchToFiber(fiber_t* fib_to_run){
         case 0:
             fib_to_run->run = 1;
             fib_to_run->activition_num++;
-            fun = fib_to_run->entry_point;           
-            fun(fib_to_run->params);
+            fun = fib_to_run->function_work;           
+            fun(fib_to_run->params_function_work);
             fib_to_run->run = 0;
             fib_to_run->finish = 1;
             longjmp(this->context,1);
