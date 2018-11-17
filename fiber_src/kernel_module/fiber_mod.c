@@ -8,7 +8,7 @@
 #include <linux/slab.h>
 #define  DEVICE_NAME "fiber"    ///< The device will appear at /dev/fiber using this value
 #define  CLASS_NAME  "fibers"        ///< The device class -- this is a character device driver
- 
+
 MODULE_LICENSE("GPL");            ///< The license type -- this affects available functionality
 MODULE_AUTHOR("Anto & Marco");    ///< The author -- visible when you use modinfo
 MODULE_DESCRIPTION("AOSV Project");  ///< The description -- see modinfo
@@ -30,6 +30,7 @@ static long    dev_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
 //command
 #define CONVERT_THREAD 1
+#define CREATE_FIBER 2
 
 
 struct fiber_t {
@@ -62,7 +63,11 @@ struct arg_device{
    long thread_id;
    long process_id;
    void* arg_function;
+   void* (function);
+   int size_stack;
 };
+
+int global_count_fiber;
  
 /** @brief The LKM initialization function
  *  The static keyword restricts the visibility of the function to within this C file. The __init
@@ -72,6 +77,8 @@ struct arg_device{
  */
 static int __init fiber_init(void){
    printk(KERN_INFO "Fiber: Initializing Fiber module\n");
+
+   global_count_fiber = 0;
 
    INIT_LIST_HEAD(&fiber_list.list);
  
@@ -185,6 +192,16 @@ static int dev_release(struct inode *inodep, struct file *filep){
    return 0;
 }
 
+static int get_last_fiber_id(long process_id){
+   struct fiber_t* node;
+   int ret;
+   ret = 0;
+   list_for_each_entry(node,&fiber_list.list,list){
+      if(node->process_id == process_id) ret+=1;
+   }
+   return ret;
+}
+
 static long dev_ioctl(struct file *filp, unsigned int cmd, unsigned long arg){
    struct fiber_t* new_node;
    struct arg_device* arg_read;
@@ -211,7 +228,33 @@ static long dev_ioctl(struct file *filp, unsigned int cmd, unsigned long arg){
          }
 
          printk(KERN_INFO "Fiber: IOCTL command {%d}\n",cmd);
-         break;
+         global_count_fiber++;
+         return (long) &fiber_list+((global_count_fiber-1)*sizeof(struct fiber_t));
+      
+      case CREATE_FIBER:
+         arg_read = (struct arg_device*) arg;
+
+         new_node = kmalloc(sizeof(*new_node),GFP_KERNEL);
+         new_node -> fiber_id = get_last_fiber_id(arg_read->process_id);
+         new_node -> active   = 0;
+         new_node -> num_activation = 0;
+         new_node -> num_activation_fail  = 0;
+         new_node -> function = arg_read->function;
+         new_node -> arg_function = arg_read->arg_function;
+         new_node -> thread_id =  arg_read->thread_id;
+         new_node -> process_id = arg_read->process_id;
+
+         INIT_LIST_HEAD(&new_node -> list);
+         list_add_tail(&(new_node->list),&(fiber_list.list));
+
+         list_for_each_entry(node,&fiber_list.list,list){
+            printk(KERN_INFO "fiber_id =  %d, process_id =  %lu, thread_id = %lu", node->fiber_id, node->process_id, node->thread_id );
+         }
+
+         printk(KERN_INFO "Fiber: IOCTL command {%d}\n",cmd);
+         global_count_fiber++;
+         return (long) &fiber_list+((global_count_fiber-1)*sizeof(struct fiber_t));
+         
       default:
          printk(KERN_INFO "Fiber: IOCTL command {%d}\n",cmd);
          break;
